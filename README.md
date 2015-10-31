@@ -15,6 +15,11 @@ Upload and manage files with autoForm.
   stores: [new FS.Store.GridFS("images", {})]
 )
 ```
+```
+this.Images = new FS.Collection("images", {
+  stores: [new FS.Store.GridFS("images", {})]
+});
+```
 3) Make sure the correct allow rules & subscriptions are set up on the collectionFS
 ```coffeescript
 Images.allow
@@ -23,10 +28,26 @@ Images.allow
   download: (userId)->
     true
 ```
+```js
+Images.allow({
+  insert: function(userId, doc) {
+    return true;
+  },
+  download: function(userId) {
+    return true;
+  }
+});
+```
 and
 ```coffeescript
 Meteor.publish 'images', ->
   Images.find()
+```
+```js
+Meteor.publish('images', function() {
+  return Images.find();
+});
+
 ```
 and in your router.coffee
 ```coffeescript
@@ -35,6 +56,13 @@ and in your router.coffee
       [
         Meteor.subscribe 'images'
       ]
+```
+```js
+this.route("profile", {
+  waitOn: function() {
+    return [Meteor.subscribe('images')];
+  }
+});
 ```
 4) Define your schema and set the `autoform` property like in the example below
 ```coffeescript
@@ -56,6 +84,32 @@ Schemas.Posts = new SimpleSchema
         label: 'Choose file' # optional
 
 Posts.attachSchema(Schemas.Posts)
+```
+```js
+var Schemas;
+
+Schemas = {};
+
+this.Posts = new Meteor.Collection('posts');
+
+Schemas.Posts = new SimpleSchema({
+  title: {
+    type: String,
+    max: 60
+  },
+  picture: {
+    type: String,
+    autoform: {
+      afFieldInput: {
+        type: 'fileUpload',
+        collection: 'Images',
+        label: 'Choose file'
+      }
+    }
+  }
+});
+
+Posts.attachSchema(Schemas.Posts);
 ```
 
 The `collection` property is the field name of your collectionFS.
@@ -81,22 +135,41 @@ or
 If you want to use an array of images inside you have to define the autoform on on the [schema key](https://github.com/aldeed/meteor-simple-schema#schema-keys)
 
 ```coffeescript
-Schemas.Posts = new SimpleSchema
-  title:
-    type: String
+    Schemas.Posts = new SimpleSchema
+      title:
+        type: String
+        max: 60
+
+      pictures:
+        type: [String]
+        label: 'Choose file' # optional
+
+      "pictures.$":
+        autoform:
+          afFieldInput:
+            type: 'fileUpload',
+            collection: 'Images'
+```
+```js
+Schemas.Posts = new SimpleSchema({
+  title: {
+    type: String,
     max: 60
-
-  pictures:
-    type: [String]
-    label: 'Choose file' # optional
-
-  "pictures.$":
-    autoform:
-      afFieldInput:
+  },
+  pictures: {
+    type: [String],
+    label: 'Choose file'
+  },
+  "pictures.$": {
+    autoform: {
+      afFieldInput: {
         type: 'fileUpload',
         collection: 'Images'
+      }
+    }
+  }
+});
 ```
-
 ###Security & optimization###
 The above example is just a starting point. You should set your own custom `allow` rules and optimize your subscriptions.
 
@@ -122,7 +195,20 @@ picture:
       label: 'Choose file' # optional
 
 ```
-
+```js
+picture: {
+  type: String,
+  autoform: {
+    afFieldInput: {
+      type: 'fileUpload',
+      collection: 'Images',
+      accept: 'image/*',
+      label: 'Choose file'
+    }
+  }
+}
+});
+```
 ### Upload progress bar ###
 
 By default `FS.UploadProgressTemplate` from [cfs:ui](https://github.com/CollectionFS/Meteor-cfs-ui) package is used to display upload progress. You can specify your own template with `uploadProgressTemplate` option, e.g.
@@ -135,6 +221,19 @@ picture:
       type: 'fileUpload'
       collection: 'Images'
       uploadProgressTemplate: 'myUploadProgressTemplate'
+```
+```js
+picture: {
+  type: String,
+  autoform: {
+    afFieldInput: {
+      type: 'fileUpload',
+      collection: 'Images',
+      uploadProgressTemplate: 'myUploadProgressTemplate'
+    }
+  }
+}
+});
 ```
 
 ### Custom file preview ###
@@ -153,7 +252,19 @@ picture:
       collection: 'Images'
       previewTemplate: 'myFilePreview'
 ```
-
+```js
+picture: {
+  type: String,
+  autoform: {
+    afFieldInput: {
+      type: 'fileUpload',
+      collection: 'Images',
+      previewTemplate: 'myFilePreview'
+    }
+  }
+}
+});
+```
 ```html
 <template name="myFilePreview">
   <a href="{{file.url}}">{{file.original.name}}</a>
@@ -174,7 +285,20 @@ picture:
       selectFileBtnTemplate: 'mySelectFileBtn'
       removeFileBtnTemplate: 'myRemoveFileBtn'
 ```
-
+```js
+picture: {
+  type: String,
+  autoform: {
+    afFieldInput: {
+      type: 'fileUpload',
+      collection: 'Images',
+      selectFileBtnTemplate: 'mySelectFileBtn',
+      removeFileBtnTemplate: 'myRemoveFileBtn'
+    }
+  }
+}
+});
+```
 ```html
 <template name="mySelectFileBtn">
   <button type="button" class="js-af-select-file">Upload file</button>
@@ -210,4 +334,32 @@ picture:
             alert 'Error'
           else
             alert 'Upload successful'
+```
+```js
+picture: {
+  type: String,
+  autoform: {
+    afFieldInput: {
+      type: 'fileUpload',
+      collection: 'Images',
+      onBeforeInsert: function() {
+        return function(fileObj) {
+          fileObj.name('picture.png');
+          return fileObj;
+        };
+      },
+      onAfterInsert: function() {
+        return function(err, fileObj) {
+          if (err) {
+            return alert('Error');
+          } else {
+            return alert('Upload successful');
+          }
+        };
+      }
+    }
+  }
+}
+});
+
 ```
